@@ -1,0 +1,10 @@
+flowchart LR
+    T[Test] --> S[Sequence]
+    S -->|transaction object| Q[Sequencer]
+    Q -->|transaction object| D[Driver]
+    D -->|virtual interface handle| IF[Interface instance]
+    IF -->|reset / enable / clk| DUT[Counter16 DUT]
+    DUT -->|count| IF
+    IF -->|virtual interface handle| M[Monitor]
+    M -->|observed transaction| SB[Scoreboard]
+    SB --> R[PASS / FAIL]

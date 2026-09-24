@@ -1,0 +1,4 @@
+flowchart LR
+    D[Driver class] -->|vif: virtual counter_if| I[counter_if instance]
+    M[Monitor class] -->|vif: virtual counter_if| I
+    I -->|real simulation signals| DUT[Counter16 module]

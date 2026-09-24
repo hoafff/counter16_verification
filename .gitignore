@@ -1,0 +1,16 @@
+# Questa/ModelSim
+work/
+transcript
+vsim.wlf
+*.wlf
+modelsim.ini
+
+# Icarus
+simv
+*.vvp
+
+# Generic generated files
+*.log
+*.jou
+*.pb
+.DS_Store

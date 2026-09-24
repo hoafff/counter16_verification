@@ -1,0 +1,9 @@
+flowchart LR
+    G[Generator] -->|put transaction| MB1[(gen2drv mailbox)]
+    MB1 -->|get transaction| D[Driver]
+    D --> IF[Interface]
+    IF --> DUT[DUT]
+    DUT --> IF
+    IF --> M[Monitor]
+    M -->|put sample object| MB2[(mon2sb mailbox)]
+    MB2 -->|get sample object| SB[Scoreboard]
