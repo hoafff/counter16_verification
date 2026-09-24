@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant Seq as Sequence
+    participant Sqr as Sequencer
+    participant Drv as Driver
+    participant DUT as DUT
+    Seq->>Sqr: start_item / finish_item(req)
+    Drv->>Sqr: get_next_item(req)
+    Sqr-->>Drv: counter_item handle
+    Drv->>DUT: drive reset/enable via interface
+    DUT-->>Drv: consumes item at posedge
+    Drv->>Sqr: item_done()
+    Sqr-->>Seq: transaction completed
