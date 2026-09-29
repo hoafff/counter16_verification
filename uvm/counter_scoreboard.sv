@@ -1,7 +1,10 @@
 class counter_scoreboard extends uvm_scoreboard;
     `uvm_component_utils(counter_scoreboard)
 
-    uvm_analysis_imp #(counter_item, counter_scoreboard) analysis_export;
+    // Day la uvm_analysis_imp: diem ket thuc nhan transaction tu analysis_port.
+    // Ten analysis_imp duoc dung de tranh nham voi uvm_analysis_export.
+    uvm_analysis_imp #(counter_item, counter_scoreboard) analysis_imp;
+
     logic [15:0] expected;
     bit seen_reset;
     int unsigned pass_count;
@@ -9,7 +12,7 @@ class counter_scoreboard extends uvm_scoreboard;
 
     function new(string name, uvm_component parent);
         super.new(name, parent);
-        analysis_export = new("analysis_export", this);
+        analysis_imp = new("analysis_imp", this);
         expected   = 16'h0000;
         seen_reset = 1'b0;
         pass_count = 0;
@@ -17,6 +20,8 @@ class counter_scoreboard extends uvm_scoreboard;
     endfunction
 
     function void write(counter_item t);
+        // Reference model nho duoc dat ngay trong scoreboard vi DUT rat don gian.
+        // Voi DUT phuc tap, phan predictor/reference model thuong nen tach rieng.
         if (t.reset) begin
             expected = 16'h0000;
             seen_reset = 1'b1;
@@ -26,6 +31,7 @@ class counter_scoreboard extends uvm_scoreboard;
                      : expected + 16'h0001;
         end
 
+        // Scoreboard tra loi cau hoi: DUT co tao ket qua DUNG hay khong?
         if (seen_reset) begin
             if (t.count !== expected) begin
                 fail_count++;
@@ -44,6 +50,7 @@ class counter_scoreboard extends uvm_scoreboard;
                   $sformatf("pass=%0d fail=%0d final_expected=0x%04h",
                             pass_count, fail_count, expected),
                   UVM_NONE)
+
         if (fail_count != 0)
             `uvm_error("SB_FAILED", "Counter scoreboard detected mismatches")
     endfunction
