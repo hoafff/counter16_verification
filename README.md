@@ -145,7 +145,8 @@ counter16_verification/
 |   `-- counter16.sv
 |
 |-- common/
-|   `-- counter_if.sv
+|   |-- counter_if.sv
+|   `-- counter_assertions.sv
 |
 |-- base_sv/
 |   |-- counter_transaction.sv
@@ -170,6 +171,7 @@ counter16_verification/
 |   |-- counter_driver.sv
 |   |-- counter_monitor.sv
 |   |-- counter_scoreboard.sv
+|   |-- counter_coverage.sv
 |   |-- counter_agent.sv
 |   |-- counter_env.sv
 |   |-- counter_tests.sv
@@ -185,17 +187,20 @@ counter16_verification/
 |   |-- run_base_questa.bat
 |   |-- run_base_wrap_questa.bat
 |   |-- run_uvm_questa.bat
-|   `-- run_uvm_wrap_questa.bat
+|   |-- run_uvm_wrap_questa.bat
+|   `-- run_uvm_random_questa.bat
 |
 |-- diagrams/
 |   |-- 01_overall_architecture.mmd
 |   |-- 02_base_sv_mailbox.mmd
 |   |-- 03_uvm_sequence_driver.mmd
-|   `-- 04_interface_vs_virtual_interface.mmd
+|   |-- 04_interface_vs_virtual_interface.mmd
+|   `-- 05_uvm_complete_flow.mmd
 |
 |-- docs/
 |   |-- architecture.md
-|   `-- demo_questions.md
+|   |-- demo_questions.md
+|   `-- uvm_code_mapping.md
 |
 `-- .github/workflows/
     `-- rtl-sanity.yml
@@ -477,16 +482,25 @@ Wrap test thực sự chạy qua toàn bộ miền 16-bit, không ép trực ti�
 
 ### UVM
 
-Có hai test:
+Có ba test chính:
 
 ```text
 counter_smoke_test
 counter_wrap_test
+counter_random_test
 ```
 
-`counter_smoke_test` kiểm tra các chức năng cơ bản.
+`counter_smoke_test` kiểm tra các chức năng cơ bản bằng directed stimulus.
 
-`counter_wrap_test` chạy regression đầy đủ để kiểm tra wrap-around 16-bit.
+`counter_wrap_test` chạy qua toàn bộ miền 16-bit để kiểm tra corner case wrap-around.
+
+`counter_random_test` dùng constrained-random stimulus để minh họa cách mở rộng không gian test ngoài các scenario định trước.
+
+UVM environment còn có:
+
+- `counter_coverage`: functional coverage, nhận transaction từ cùng analysis port với scoreboard;
+- `counter16_assertions`: SVA kiểm tra reset, hold, increment và wrap ở mức signal/timing;
+- `uvm_top.print_topology()`: in hierarchy UVM thực tế để đối chiếu trực tiếp với sơ đồ.
 
 ---
 
@@ -544,6 +558,12 @@ scripts\run_uvm_questa.bat
 
 ```bat
 scripts\run_uvm_wrap_questa.bat
+```
+
+### UVM constrained-random test
+
+```bat
+scripts\run_uvm_random_questa.bat
 ```
 
 Đối với UVM, đặt biến môi trường `UVM_HOME` tới thư mục chứa:
@@ -662,3 +682,35 @@ Có thể mô tả toàn bộ project bằng một câu:
 > **Sequence tạo transaction object -> Sequencer cấp object cho Driver -> Driver biến object thành signal qua virtual interface/interface -> DUT xử lý signal -> Monitor đọc output signal và đóng gói thành object -> Scoreboard so sánh actual với expected để kết luận PASS/FAIL.**
 
 Đây là luồng cốt lõi cần hiểu trước khi đi sâu hơn vào UVM.
+
+---
+
+## 16. Presentation-oriented verification flow
+
+Phiên bản mở rộng dùng cho demo/presentation giữ nguyên luồng UVM cơ bản và bổ sung ba góc nhìn verification:
+
+```text
+Directed / Random Sequence
+           |
+           v
+       Sequencer
+           |
+           v
+         Driver
+           |
+       object -> signal
+           |
+           v
+        counter16  <---- Assertions
+           |
+       signal -> object
+           |
+           v
+         Monitor
+        /       \
+       v         v
+ Scoreboard    Coverage
+ đúng/sai      đã test đủ?
+```
+
+File `docs/uvm_code_mapping.md` map từng node/mũi tên trên sơ đồ sang file và đoạn code tương ứng. Sơ đồ Mermaid đầy đủ nằm tại `diagrams/05_uvm_complete_flow.mmd`.
