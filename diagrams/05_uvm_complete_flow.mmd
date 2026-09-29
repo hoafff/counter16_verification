@@ -1,0 +1,25 @@
+flowchart LR
+    TEST[Test]
+    DSEQ[Directed Sequence]
+    RSEQ[Random Sequence]
+    SEQR[Sequencer]
+    DRV[Driver]
+    IF[Interface]
+    DUT[counter16 DUT]
+    MON[Monitor]
+    SB[Scoreboard]
+    COV[Coverage]
+    SVA[Assertions]
+
+    TEST --> DSEQ
+    TEST --> RSEQ
+    DSEQ --> SEQR
+    RSEQ --> SEQR
+    SEQR --> DRV
+    DRV --> IF
+    IF --> DUT
+    DUT --> IF
+    IF --> MON
+    MON --> SB
+    MON --> COV
+    DUT --> SVA
