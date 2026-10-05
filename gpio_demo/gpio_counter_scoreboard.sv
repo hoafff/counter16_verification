@@ -20,8 +20,8 @@ class gpio_counter_scoreboard extends uvm_scoreboard;
     endfunction
 
     function void write(gpio_item t);
-        bit reset;
-        bit enable;
+        logic reset;
+        logic enable;
         logic [15:0] count;
         bit direction_ok;
 
@@ -42,15 +42,26 @@ class gpio_counter_scoreboard extends uvm_scoreboard;
             return;
         end
 
-        // Consume resolved physical pin values, not just intended drive values.
+        // Consume resolved physical pin values, preserving X/Z states.
         reset  = t.sampled_value[0];
         enable = t.sampled_value[1];
         count  = t.sampled_value[17:2];
 
-        if (reset) begin
+        // Once output pins are enabled, reset/enable must resolve to 0 or 1.
+        // X/Z here means a pin-level problem (for example contention).
+        if (!((reset === 1'b0) || (reset === 1'b1)) ||
+            !((enable === 1'b0) || (enable === 1'b1))) begin
+            fail_count++;
+            `uvm_error("GPIO_CONTROL_UNKNOWN",
+                $sformatf("reset=%b enable=%b on resolved GPIO pins",
+                          reset, enable))
+            return;
+        end
+
+        if (reset === 1'b1) begin
             expected   = 16'h0000;
             seen_reset = 1'b1;
-        end else if (seen_reset && enable) begin
+        end else if (seen_reset && enable === 1'b1) begin
             expected = (expected == 16'hFFFF)
                      ? 16'h0000
                      : expected + 16'h0001;
