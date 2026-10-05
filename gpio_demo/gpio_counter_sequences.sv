@@ -7,14 +7,22 @@ class gpio_counter_base_sequence extends gpio_base_sequence;
 
     task drive_control(bit reset, bit enable);
         bit [GPIO_WIDTH-1:0] value;
-        value = '0;
+        bit [GPIO_WIDTH-1:0] oe;
 
-        // Counter16 mapping used only by this demo:
-        // GPIO_OUT[0] -> reset
-        // GPIO_OUT[1] -> enable
+        value = '0;
+        oe    = '0;
+
+        // Counter16 demo mapping on one bidirectional GPIO bank:
+        // pin 0     : OUTPUT -> reset
+        // pin 1     : OUTPUT -> enable
+        // pins 2..17: INPUT  <- count[15:0]
         value[0] = reset;
         value[1] = enable;
-        send_gpio(value);
+        oe[0]    = 1'b1;
+        oe[1]    = 1'b1;
+
+        // count pins remain oe=0, therefore the UVC releases them to Hi-Z.
+        send_gpio(value, oe);
     endtask
 endclass
 
@@ -57,7 +65,6 @@ class gpio_counter_wrap_sequence extends gpio_counter_base_sequence;
     endfunction
 
     task body();
-        // 65535 increments reach FFFF; the next one wraps to 0000.
         repeat (16'hFFFF + 3)
             drive_control(1'b0, 1'b1);
         repeat (2)
