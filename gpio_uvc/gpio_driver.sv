@@ -19,11 +19,13 @@ class gpio_driver extends uvm_driver #(gpio_item);
         forever begin
             seq_item_port.get_next_item(req);
 
-            // Object -> pin-level GPIO signal.
+            // Transaction -> GPIO pins:
+            // 1) output_enable selects OUTPUT versus INPUT/Hi-Z per pin.
+            // 2) drive_value is visible on pins whose output_enable bit is 1.
             @(vif.drv_cb);
-            vif.drv_cb.gpio_out <= req.gpio_out;
+            vif.drv_cb.drive_value   <= req.drive_value;
+            vif.drv_cb.output_enable <= req.output_enable;
 
-            // The demo DUT consumes control GPIOs at the following posedge.
             @(posedge vif.clk);
             seq_item_port.item_done();
         end
