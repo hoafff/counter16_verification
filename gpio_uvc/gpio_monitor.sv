@@ -21,8 +21,9 @@ class gpio_monitor extends uvm_monitor;
         forever begin
             @(vif.mon_cb);
             observed = gpio_item::type_id::create("observed");
-            observed.gpio_out = vif.mon_cb.gpio_out;
-            observed.gpio_in  = vif.mon_cb.gpio_in;
+            observed.drive_value   = vif.mon_cb.drive_value;
+            observed.output_enable = vif.mon_cb.output_enable;
+            observed.sampled_value = vif.mon_cb.gpio;
             ap.write(observed);
         end
     endtask
