@@ -1,21 +1,56 @@
-# GPIO UVC demo with Counter16
+# Pin-level GPIO UVC demo with Counter16
 
 Branch: `feature/gpio-uvc`
 
 ## Goal
 
-Build a reusable GPIO UVC and use Counter16 only as a small demonstration DUT.
+Build a reusable **pin-level GPIO UVC** and use Counter16 only as a small demonstration DUT.
 
-The reusable UVC does **not** contain Counter16 names such as `reset`, `enable` or `count`.
-Those meanings exist only in the demo adapter/test layer.
+The GPIO-specific behavior is now explicit:
 
-## Signal mapping used by the demo
+- configurable GPIO value per pin;
+- input/output direction through `output_enable`;
+- tri-state/Hi-Z release for input pins;
+- monitoring of the **resolved physical pin value**;
+- active/passive UVM agent mode.
+
+The reusable UVC does not know Counter16 names such as `reset`, `enable` or `count`.
+Those meanings exist only in `gpio_demo/`.
+
+## GPIO transaction
 
 ```text
-GPIO_OUT[0]  -> Counter16.reset
-GPIO_OUT[1]  -> Counter16.enable
+gpio_item
+├── drive_value[17:0]      value requested on output pins
+├── output_enable[17:0]    1 = OUTPUT, 0 = INPUT/Hi-Z
+└── sampled_value[17:0]    resolved value observed on physical pins
+```
 
-Counter16.count[15:0] -> GPIO_IN[15:0]
+This is the key difference from a normal digital transaction: direction and tri-state behavior are part of the GPIO abstraction.
+
+## Counter16 demo pin mapping
+
+One 18-pin GPIO bank is used:
+
+```text
+GPIO pin 0      OUTPUT  -> Counter16.reset
+GPIO pin 1      OUTPUT  -> Counter16.enable
+GPIO pins 2..17 INPUT   <- Counter16.count[15:0]
+```
+
+For pins 0 and 1:
+
+```text
+output_enable = 1
+UVC driver -> drive_value -> physical GPIO pin -> Counter16
+```
+
+For pins 2..17:
+
+```text
+output_enable = 0
+UVC releases pin to Z
+Counter16.count -> physical GPIO pin -> monitor.sampled_value
 ```
 
 The clock remains a testbench clock and is not treated as a GPIO pin.
@@ -23,36 +58,45 @@ The clock remains a testbench clock and is not treated as a GPIO pin.
 ## Architecture
 
 ```text
-gpio_counter_* sequence
-          |
-          v
-+-----------------------+
-|       GPIO UVC        |
-| gpio_sequencer        |
-|       |               |
-| gpio_driver           |
-|       |               |
-|     gpio_if           |
-|       |               |
-| gpio_monitor ---------+------> analysis_port
-+-------|---------------+             |
-        |                             v
-        |                   gpio_counter_scoreboard
-        v
-     Counter16
+Counter-specific GPIO sequence
+             |
+             v
+      gpio_item transaction
+ drive_value + output_enable
+             |
+             v
++----------------------------------+
+|          REUSABLE GPIO UVC       |
+|                                  |
+| gpio_sequencer -> gpio_driver    |
+|                       |          |
+|                       v          |
+|                    gpio_if       |
+|              drive / OE / Hi-Z   |
+|                       |          |
+| physical GPIO pins ---+          |
+|                       |          |
+|                 gpio_monitor     |
+|                       |          |
++-----------------------|----------+
+                        v
+                 sampled_value
+                        |
+                        v
+            Counter16 scoreboard
 ```
 
 ## Reusable UVC files
 
 ```text
 gpio_uvc/
-  gpio_if.sv
-  gpio_item.sv
-  gpio_config.sv
-  gpio_sequences.sv
+  gpio_if.sv          physical tri-state GPIO bank
+  gpio_item.sv        value + direction/OE + sampled value
+  gpio_config.sv      active/passive configuration
+  gpio_sequences.sv   generic GPIO stimulus
   gpio_sequencer.sv
-  gpio_driver.sv
-  gpio_monitor.sv
+  gpio_driver.sv      transaction -> drive_value/OE
+  gpio_monitor.sv     physical pins -> sampled_value
   gpio_agent.sv
   gpio_uvc_pkg.sv
 ```
@@ -76,11 +120,6 @@ gpio_demo/
   run_questa.do
 ```
 
-This separation is the important UVC idea:
-
-- `gpio_uvc/` understands generic GPIO transactions.
-- `gpio_demo/` gives GPIO bits Counter16-specific meaning.
-
 ## Tests
 
 Smoke:
@@ -89,52 +128,34 @@ Smoke:
 scripts\run_gpio_uvc_questa.bat
 ```
 
-Explicit smoke:
-
-```bat
-scripts\run_gpio_uvc_questa.bat gpio_counter_smoke_test
-```
-
 Random:
 
 ```bat
 scripts\run_gpio_uvc_questa.bat gpio_counter_random_test
 ```
 
-Full 16-bit wrap:
+Full wrap:
 
 ```bat
 scripts\run_gpio_uvc_questa.bat gpio_counter_wrap_test
 ```
 
-The wrap test intentionally performs enough increments to prove:
+The wrap test proves:
 
 ```text
 FFFE -> FFFF -> 0000 -> 0001
 ```
 
-## What each UVC block demonstrates
+## What makes this GPIO-specific?
 
-| Block | UVM responsibility |
-|---|---|
-| `gpio_item` | Generic GPIO transaction |
-| `gpio_sequence` | Creates transaction objects |
-| `gpio_sequencer` | Arbitrates sequence items |
-| `gpio_driver` | Converts transaction -> output pins |
-| `gpio_monitor` | Converts pins -> observed transaction |
-| `gpio_agent` | Packages driver/sequencer/monitor and supports active/passive mode |
-| `gpio_agent_config` | Carries UVC mode and virtual interface |
-| Counter demo scoreboard | Interprets GPIO bits and checks Counter16 behavior |
-
-## Main point for presentation
-
-A Counter16-specific agent knows the semantic names `reset`, `enable` and `count`.
-
-The GPIO UVC instead knows only:
+A generic UVM agent normally only proves a sequence/sequencer/driver/monitor structure.
+This UVC additionally models the properties of GPIO pins themselves:
 
 ```text
-gpio_out
-gpio_in
+per-pin value
++ per-pin direction/output-enable
++ Hi-Z when configured as input
++ resolved pin sampling
 ```
 
-The mapping to a particular DUT is done outside the UVC. This is what makes the component reusable.
+Therefore it is no longer just a `counter_agent` with GPIO names.
