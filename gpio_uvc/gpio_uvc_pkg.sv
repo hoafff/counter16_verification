@@ -2,7 +2,9 @@ package gpio_uvc_pkg;
     import uvm_pkg::*;
     `include "uvm_macros.svh"
 
-    parameter int GPIO_WIDTH = 16;
+    // Demo uses one GPIO bank:
+    // pin 0 reset, pin 1 enable, pins 2..17 count[15:0].
+    parameter int GPIO_WIDTH = 18;
 
     `include "gpio_item.sv"
     `include "gpio_config.sv"
