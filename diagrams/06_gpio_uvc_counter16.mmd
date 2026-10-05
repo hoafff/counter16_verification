@@ -1,0 +1,15 @@
+flowchart LR
+    TEST[GPIO Counter Test] --> SEQ[Counter-specific GPIO Sequence]
+    SEQ --> SEQR[GPIO Sequencer]
+    SEQR --> DRV[GPIO Driver]
+    DRV -->|gpio_out| IF[GPIO Interface]
+    IF -->|out0 reset / out1 enable| DUT[Counter16 DUT]
+    DUT -->|count 15:0| IF
+    IF --> MON[GPIO Monitor]
+    MON -->|gpio_item| SB[Counter Scoreboard]
+
+    subgraph UVC[Reusable GPIO UVC]
+        SEQR
+        DRV
+        MON
+    end
