@@ -22,10 +22,20 @@ class gpio_counter_scoreboard extends uvm_scoreboard;
         bit enable;
         logic [15:0] count;
 
-        // Adapter semantics live here, outside the reusable GPIO UVC.
-        reset  = t.gpio_out[0];
-        enable = t.gpio_out[1];
-        count  = t.gpio_in[15:0];
+        // The scoreboard consumes resolved pin values, not intended values.
+        // This lets it check the same physical GPIO view seen by the DUT.
+        reset  = t.sampled_value[0];
+        enable = t.sampled_value[1];
+        count  = t.sampled_value[17:2];
+
+        // Direction contract for this Counter16 adapter:
+        // control pins are outputs; count pins are inputs (Hi-Z from the UVC).
+        if (t.output_enable[1:0] !== 2'b11 ||
+            t.output_enable[17:2] !== 16'h0000) begin
+            fail_count++;
+            `uvm_error("GPIO_DIRECTION",
+                $sformatf("Unexpected output_enable=0x%05h", t.output_enable))
+        end
 
         if (reset) begin
             expected   = 16'h0000;
@@ -40,8 +50,8 @@ class gpio_counter_scoreboard extends uvm_scoreboard;
             if (count !== expected) begin
                 fail_count++;
                 `uvm_error("GPIO_COUNT_MISMATCH",
-                    $sformatf("gpio_out=0x%04h count=0x%04h expected=0x%04h",
-                              t.gpio_out, count, expected))
+                    $sformatf("pins=0x%05h count=0x%04h expected=0x%04h",
+                              t.sampled_value, count, expected))
             end else begin
                 pass_count++;
             end
@@ -57,6 +67,6 @@ class gpio_counter_scoreboard extends uvm_scoreboard;
                   UVM_NONE)
 
         if (fail_count != 0)
-            `uvm_error("GPIO_SB_FAILED", "GPIO-driven Counter16 demo detected mismatches")
+            `uvm_error("GPIO_SB_FAILED", "Pin-level GPIO Counter16 demo detected mismatches")
     endfunction
 endclass
