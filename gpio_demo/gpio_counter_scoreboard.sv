@@ -5,37 +5,47 @@ class gpio_counter_scoreboard extends uvm_scoreboard;
 
     logic [15:0] expected;
     bit seen_reset;
+    bit gpio_mapping_active;
     int unsigned pass_count;
     int unsigned fail_count;
 
     function new(string name, uvm_component parent);
         super.new(name, parent);
         analysis_imp = new("analysis_imp", this);
-        expected   = 16'h0000;
-        seen_reset = 1'b0;
-        pass_count = 0;
-        fail_count = 0;
+        expected            = 16'h0000;
+        seen_reset          = 1'b0;
+        gpio_mapping_active = 1'b0;
+        pass_count          = 0;
+        fail_count          = 0;
     endfunction
 
     function void write(gpio_item t);
         bit reset;
         bit enable;
         logic [15:0] count;
+        bit direction_ok;
 
-        // The scoreboard consumes resolved pin values, not intended values.
-        // This lets it check the same physical GPIO view seen by the DUT.
-        reset  = t.sampled_value[0];
-        enable = t.sampled_value[1];
-        count  = t.sampled_value[17:2];
+        direction_ok = (t.output_enable[1:0]  === 2'b11) &&
+                       (t.output_enable[17:2] === 16'h0000);
 
-        // Direction contract for this Counter16 adapter:
-        // control pins are outputs; count pins are inputs (Hi-Z from the UVC).
-        if (t.output_enable[1:0] !== 2'b11 ||
-            t.output_enable[17:2] !== 16'h0000) begin
+        // Before the first sequence item, every generic GPIO pin is intentionally
+        // INPUT/Hi-Z. Ignore that startup monitor sample. Once the Counter16
+        // adapter mapping becomes active, a later direction error is real.
+        if (!gpio_mapping_active) begin
+            if (!direction_ok)
+                return;
+            gpio_mapping_active = 1'b1;
+        end else if (!direction_ok) begin
             fail_count++;
             `uvm_error("GPIO_DIRECTION",
                 $sformatf("Unexpected output_enable=0x%05h", t.output_enable))
+            return;
         end
+
+        // Consume resolved physical pin values, not just intended drive values.
+        reset  = t.sampled_value[0];
+        enable = t.sampled_value[1];
+        count  = t.sampled_value[17:2];
 
         if (reset) begin
             expected   = 16'h0000;
@@ -65,6 +75,9 @@ class gpio_counter_scoreboard extends uvm_scoreboard;
                   $sformatf("pass=%0d fail=%0d final_expected=0x%04h",
                             pass_count, fail_count, expected),
                   UVM_NONE)
+
+        if (!gpio_mapping_active)
+            `uvm_error("GPIO_NO_ACTIVITY", "GPIO direction mapping never became active")
 
         if (fail_count != 0)
             `uvm_error("GPIO_SB_FAILED", "Pin-level GPIO Counter16 demo detected mismatches")
